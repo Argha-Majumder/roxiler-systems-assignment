@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import 'dotenv/config';
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient,Prisma } from "@prisma/client";
 import axios from 'axios';
 
 const app = express();
@@ -42,6 +42,93 @@ app.get('/initialize', async (req, res) => {
         res.status(500).send('Error seeding database');
     }
 });
+
+/*app.get('/products/:month', async (req, res) => {
+    const { month } = req.params;
+    try {
+        // Convert page and limit to numbers
+        const pageNumber = parseInt(page as string,  10);
+        const limitNumber = parseInt(limit as string,  10);
+
+        // Calculate the offset for pagination
+        const offset = (pageNumber -  1) * limitNumber;
+        const searchString = search as string;
+        let products;
+        if (searchString && searchString!=='') {
+            products = await prisma.products.findMany({
+                skip: offset,
+                take: limitNumber,
+                where: {
+                    OR: [
+                        {
+                            title: {
+                                contains: searchString,
+                                mode: 'insensitive'
+                            }
+                        },
+                        {
+                            description: {
+                                contains: searchString,
+                                mode: 'insensitive'
+                            }
+                        },
+                        {
+                            price: {
+                                contains: searchString,
+                            }
+                        },
+                    ]
+                }
+            });
+        } else {
+            products = await prisma.products.findMany({
+                skip: offset,
+                take: limitNumber,
+                where: {
+                    dateOfSale: {
+                        dateOfSale: {
+                            equals: new Date(`${new Date().getFullYear()}-${month}-01`),
+                            mode: Prisma.DateTimeFilterMode.Month,
+                        },
+                    }
+                }
+            });
+        }
+        const products = await prisma.products.findMany({});
+        const filteredProducts = products.filter(product => {
+            const saleDate = new Date(product.dateOfSale);
+            return saleDate.getMonth()+1===parseInt(month, 10);
+        });
+        res.json(filteredProducts);
+    } catch (err) {
+        console.error("Error fetching data", err);
+        res.status(500).send('Error fetching data');
+    }
+});*/
+
+app.get('/products/:month', async (req, res) => {
+    const { month } = req.params;
+    const { page =  1, limit =  10, search } = req.query;
+  
+    try {
+        const pageNumber = parseInt(page as string, 10);
+        const limitNumber = parseInt(limit as string, 10);
+        const offset = (pageNumber - 1) * limitNumber;
+        const searchString = search || '';
+
+        let products;
+        if (searchString) {
+            products = await prisma.$queryRaw`SELECT * FROM "Products" WHERE (("title" ILIKE '%'||${searchString}||'%' OR "description" ILIKE '%'||${searchString}||'%' OR "price" ILIKE '%'||${searchString}||'%') AND EXTRACT(MONTH FROM "dateOfSale") = CAST(${month} AS INTEGER)) OFFSET ${offset} LIMIT ${limitNumber}`;
+        } else {
+            products = await prisma.$queryRaw`SELECT * FROM "Products" WHERE EXTRACT(MONTH FROM "dateOfSale") = CAST(${month} AS INTEGER) OFFSET ${offset} LIMIT ${limitNumber}`;
+        }
+
+        res.json(products);
+    } catch (err) {
+        console.error("Error fetching data", err);
+        res.status(500).send('Error fetching data');
+    }
+});  
 
 app.listen(port, () => {
     console.log('Server is running on localhost:3000');

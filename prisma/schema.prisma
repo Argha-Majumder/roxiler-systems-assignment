@@ -16,7 +16,7 @@ datasource db {
 model Products {
   id          String   @id @default(uuid())
   title       String
-  price       Float
+  price       String
   description String
   category    String
   image       String
